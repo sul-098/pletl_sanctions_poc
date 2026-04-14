@@ -1,0 +1,208 @@
+spring:
+  application:
+    name: aml-sanctions-delta-poc
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+    etl.mashreq: DEBUG
+
+sanctions:
+  shared-root-directory: /Users/muhammadsuleman/Downloads/sectionslits
+  delta-output-directory: /Users/muhammadsuleman/Downloads/sectionslits/delta
+  state-file: /Users/muhammadsuleman/Downloads/sectionslits/state/processing-state.json
+  error-directory: /Users/muhammadsuleman/Downloads/sectionslits/error
+  archive-directory: /Users/muhammadsuleman/Downloads/sectionslits/archive
+  scheduler-enabled: true
+  poll-cron: "0 */5 * * * *"
+  pretty-json: true
+
+  sources:
+    - id: ofac
+      enabled: true
+      sub-directory: ofac
+      file-regex: "^ofac-sdn-(\\d{14})\\.xml$"
+      entry-xpath: "/*[local-name()='sdnList']/*[local-name()='sdnEntry']"
+      unique-key:
+        type: xpath
+        xpath: "./*[local-name()='uid']/text()"
+      fields:
+        sourceRef: "./*[local-name()='uid']/text()"
+        listType: "'OFAC'"
+        entityType: "./*[local-name()='sdnType']/text()"
+        primaryName: "concat(normalize-space(./*[local-name()='firstName']/text()), ' ', normalize-space(./*[local-name()='lastName']/text()))"
+        remarks: "./*[local-name()='remarks']/text()"
+      collections:
+        aliases:
+          item-xpath: "./*[local-name()='akaList']/*[local-name()='aka']"
+          item-fields:
+            firstName: "./*[local-name()='firstName']/text()"
+            lastName: "./*[local-name()='lastName']/text()"
+            category: "./*[local-name()='category']/text()"
+            type: "./*[local-name()='type']/text()"
+        addresses:
+          item-xpath: "./*[local-name()='addressList']/*[local-name()='address']"
+          item-fields:
+            address1: "./*[local-name()='address1']/text()"
+            address2: "./*[local-name()='address2']/text()"
+            city: "./*[local-name()='city']/text()"
+            stateOrProvince: "./*[local-name()='stateOrProvince']/text()"
+            postalCode: "./*[local-name()='postalCode']/text()"
+            country: "./*[local-name()='country']/text()"
+        nationalities:
+          item-xpath: "./*[local-name()='nationalityList']/*[local-name()='nationality']"
+          item-fields:
+            country: "./*[local-name()='country']/text()"
+            mainEntry: "./*[local-name()='mainEntry']/text()"
+        datesOfBirth:
+          item-xpath: "./*[local-name()='dateOfBirthList']/*[local-name()='dateOfBirthItem']"
+          item-fields:
+            dateOfBirth: "./*[local-name()='dateOfBirth']/text()"
+            mainEntry: "./*[local-name()='mainEntry']/text()"
+        placeOfBirths:
+          item-xpath: "./*[local-name()='placeOfBirthList']/*[local-name()='placeOfBirthItem']"
+          item-fields:
+            placeOfBirth: "./*[local-name()='placeOfBirth']/text()"
+            mainEntry: "./*[local-name()='mainEntry']/text()"
+        documents:
+          item-xpath: "./*[local-name()='idList']/*[local-name()='id']"
+          item-fields:
+            idType: "./*[local-name()='idType']/text()"
+            idNumber: "./*[local-name()='idNumber']/text()"
+            idCountry: "./*[local-name()='idCountry']/text()"
+            expirationDate: "./*[local-name()='expirationDate']/text()"
+
+    - id: hmt
+      enabled: true
+      sub-directory: hmt
+      file-regex: "^hmt-uk-(\\d{14})\\.xml$"
+      entry-xpath: "//*[local-name()='Designation']"
+      unique-key:
+        type: xpath
+        xpath: "./*[local-name()='UniqueID']/text()"
+      fields:
+        sourceRef: "./*[local-name()='UniqueID']/text()"
+        listType: "'HMT'"
+        entityType: "./*[local-name()='IndividualEntityShip']/text()"
+        primaryName: "./*[local-name()='Names']/*[local-name()='Name'][translate(normalize-space(./*[local-name()='NameType']/text()), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='primary name']/*[local-name()='Name6']/text()"
+        regimeName: "./*[local-name()='RegimeName']/text()"
+        remarks: "./*[local-name()='OtherInformation']/text()"
+      collections:
+        aliases:
+          item-xpath: "./*[local-name()='Names']/*[local-name()='Name'][not(translate(normalize-space(./*[local-name()='NameType']/text()), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='primary name')]"
+          item-fields:
+            name1: "./*[local-name()='Name1']/text()"
+            name2: "./*[local-name()='Name2']/text()"
+            name3: "./*[local-name()='Name3']/text()"
+            name4: "./*[local-name()='Name4']/text()"
+            name5: "./*[local-name()='Name5']/text()"
+            name6: "./*[local-name()='Name6']/text()"
+            nameType: "./*[local-name()='NameType']/text()"
+
+    - id: eu
+      enabled: true
+      sub-directory: eu
+      file-regex: "^eu-(\\d{14})\\.xml$"
+      entry-xpath: "//*[local-name()='sanctionEntity']"
+      unique-key:
+        type: xpath
+        xpath: "./@euReferenceNumber | ./*[local-name()='euReferenceNumber']/text()"
+      fields:
+        sourceRef: "./@euReferenceNumber | ./*[local-name()='euReferenceNumber']/text()"
+        listType: "'EU'"
+        entityType: "./@subjectType | ./*[local-name()='subjectType']/text()"
+        primaryName: "./*[local-name()='nameAlias'][1]/@wholeName | ./*[local-name()='nameAlias'][1]/*[local-name()='wholeName']/text()"
+
+    - id: un
+      enabled: true
+      sub-directory: un
+      file-regex: "^un-(\\d{14})\\.xml$"
+      entry-xpath: "//*[local-name()='INDIVIDUAL' or local-name()='ENTITY']"
+      unique-key:
+        type: xpath
+        xpath: "./*[local-name()='DATAID']/text()"
+
+      fields:
+        sourceRef: "./*[local-name()='DATAID']/text()"
+        listType: "'UN'"
+        entityType: "local-name()"
+        primaryName: "concat(normalize-space(./*[local-name()='FIRST_NAME']/text()), ' ', normalize-space(./*[local-name()='SECOND_NAME']/text()), ' ', normalize-space(./*[local-name()='THIRD_NAME']/text()), ' ', normalize-space(./*[local-name()='FOURTH_NAME']/text()))"
+        referenceNumber: "./*[local-name()='REFERENCE_NUMBER']/text()"
+        unListType: "./*[local-name()='UN_LIST_TYPE']/text()"
+        listedOn: "./*[local-name()='LISTED_ON']/text()"
+        gender: "./*[local-name()='GENDER']/text()"
+        comments: "./*[local-name()='COMMENTS1']/text()"
+
+      collections:
+        designations:
+          item-xpath: "./*[local-name()='DESIGNATION']/*[local-name()='VALUE']"
+          item-fields:
+            value: "./text()"
+
+        titles:
+          item-xpath: "./*[local-name()='TITLE']/*[local-name()='VALUE']"
+          item-fields:
+            value: "./text()"
+
+        nationalities:
+          item-xpath: "./*[local-name()='NATIONALITY']"
+          item-fields:
+            value: "./*[local-name()='VALUE']/text()"
+
+        aliases:
+          item-xpath: "./*[local-name()='INDIVIDUAL_ALIAS' or local-name()='ENTITY_ALIAS']"
+          item-fields:
+            aliasName: "./*[local-name()='ALIAS_NAME']/text()"
+            quality: "./*[local-name()='QUALITY']/text()"
+
+        addresses:
+          item-xpath: "./*[local-name()='INDIVIDUAL_ADDRESS' or local-name()='ENTITY_ADDRESS']"
+          item-fields:
+            street: "./*[local-name()='STREET']/text()"
+            city: "./*[local-name()='CITY']/text()"
+            stateProvince: "./*[local-name()='STATE_PROVINCE']/text()"
+            country: "./*[local-name()='COUNTRY']/text()"
+            note: "./*[local-name()='NOTE']/text()"
+            zipCode: "./*[local-name()='ZIP_CODE']/text()"
+
+        datesOfBirth:
+          item-xpath: "./*[local-name()='INDIVIDUAL_DATE_OF_BIRTH']"
+          item-fields:
+            typeOfDate: "./*[local-name()='TYPE_OF_DATE']/text()"
+            date: "./*[local-name()='DATE']/text()"
+            year: "./*[local-name()='YEAR']/text()"
+            fromYear: "./*[local-name()='FROM_YEAR']/text()"
+            toYear: "./*[local-name()='TO_YEAR']/text()"
+
+        placesOfBirth:
+          item-xpath: "./*[local-name()='INDIVIDUAL_PLACE_OF_BIRTH']"
+          item-fields:
+            city: "./*[local-name()='CITY']/text()"
+            stateProvince: "./*[local-name()='STATE_PROVINCE']/text()"
+            country: "./*[local-name()='COUNTRY']/text()"
+
+        documents:
+          item-xpath: "./*[local-name()='INDIVIDUAL_DOCUMENT' or local-name()='ENTITY_DOCUMENT']"
+          item-fields:
+            typeOfDocument: "./*[local-name()='TYPE_OF_DOCUMENT']/text()"
+            number: "./*[local-name()='NUMBER']/text()"
+            issuingCountry: "./*[local-name()='ISSUING_COUNTRY']/text()"
+            dateOfIssue: "./*[local-name()='DATE_OF_ISSUE']/text()"
+            cityOfIssue: "./*[local-name()='CITY_OF_ISSUE']/text()"
+
+    - id: uae
+      enabled: true
+      sub-directory: uae
+      file-regex: "^uae-(\\d{14})\\.xml$"
+      entry-xpath: "//*[local-name()='Person' or local-name()='Entity' or local-name()='Record']"
+      unique-key:
+        type: xpath
+        xpath: "./*[local-name()='ReferenceNumber']/text() | ./@id"
+      fields:
+        sourceRef: "./*[local-name()='ReferenceNumber']/text() | ./@id"
+        listType: "'UAE'"
+        entityType: "local-name()"
+        primaryName: "./*[local-name()='Name']/text() | ./*[local-name()='FullName']/text()"

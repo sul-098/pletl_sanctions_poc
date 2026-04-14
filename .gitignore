@@ -1,0 +1,15 @@
+# Maven
+target/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+*.env

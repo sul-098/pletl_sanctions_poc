@@ -24,4 +24,3 @@ public class AmlDeltaApplication implements CommandLineRunner {
         processingOrchestrator.processAll();
     }
 }
-

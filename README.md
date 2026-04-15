@@ -11,4 +11,4 @@ This project compares sanctions lists (OFAC, HMT, UN, EU, UAE) and generates del
 ## Tech Stack
 - Java 17
 - Spring Boot
-- XML parsing (XPath → moving to StAX)
+- XML parsing (XPath → moving to StAX)git checkout -b parser-optimization\

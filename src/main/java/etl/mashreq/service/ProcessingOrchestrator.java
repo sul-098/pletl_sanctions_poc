@@ -6,6 +6,7 @@ import etl.mashreq.domain.DeltaFile;
 import etl.mashreq.domain.FilePair;
 import etl.mashreq.domain.NormalizedSanctionsFile;
 import etl.mashreq.domain.ProcessingState;
+import etl.mashreq.parser.SanctionsSourceParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,7 @@ public class ProcessingOrchestrator {
 
     private final SanctionsProperties properties;
     private final FolderScannerService folderScannerService;
-    private final GenericXPathXmlParser parser;
+    private final etl.mashreq.parser.SanctionsParserFactory parserFactory;
     private final DiffService diffService;
     private final DeltaWriterService deltaWriterService;
     private final StateStoreService stateStoreService;
@@ -43,10 +44,13 @@ public class ProcessingOrchestrator {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown source: " + pair.getSourceId()));
 
-        log.info("Processing source={} current={} previous={}",
+        SanctionsSourceParser parser = parserFactory.getParser(pair.getSourceId());
+
+        log.info("Processing source={} current={} previous={} parser={}",
                 pair.getSourceId(),
                 pair.getCurrentFile().getFileName(),
-                pair.getPreviousFile() == null ? "null" : pair.getPreviousFile().getFileName());
+                pair.getPreviousFile() == null ? "null" : pair.getPreviousFile().getFileName(),
+                parser.getClass().getSimpleName());
 
         log.info("Parsing current file: {}", pair.getCurrentFile());
         NormalizedSanctionsFile current = parser.parse(pair.getCurrentFile(), source);

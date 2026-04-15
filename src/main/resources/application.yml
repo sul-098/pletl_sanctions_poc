@@ -109,13 +109,92 @@ sanctions:
       entry-xpath: "//*[local-name()='sanctionEntity']"
       unique-key:
         type: xpath
-        xpath: "./@euReferenceNumber | ./*[local-name()='euReferenceNumber']/text()"
-      fields:
-        sourceRef: "./@euReferenceNumber | ./*[local-name()='euReferenceNumber']/text()"
-        listType: "'EU'"
-        entityType: "./@subjectType | ./*[local-name()='subjectType']/text()"
-        primaryName: "./*[local-name()='nameAlias'][1]/@wholeName | ./*[local-name()='nameAlias'][1]/*[local-name()='wholeName']/text()"
+        xpath: "./@euReferenceNumber"
 
+      fields:
+        sourceRef: "./@euReferenceNumber"
+        listType: "'EU'"
+        entityType: "./*[local-name()='subjectType']/@code"
+        primaryName: "./*[local-name()='nameAlias'][1]/@wholeName"
+        logicalId: "./@logicalId"
+        unitedNationId: "./@unitedNationId"
+        designationDetails: "./@designationDetails"
+        remark: "./*[local-name()='remark']/text()"
+
+      collections:
+        aliases:
+          item-xpath: "./*[local-name()='nameAlias']"
+          item-fields:
+            wholeName: "./@wholeName"
+            firstName: "./@firstName"
+            middleName: "./@middleName"
+            lastName: "./@lastName"
+            function: "./@function"
+            gender: "./@gender"
+            title: "./@title"
+            nameLanguage: "./@nameLanguage"
+            strong: "./@strong"
+            logicalId: "./@logicalId"
+
+        citizenships:
+          item-xpath: "./*[local-name()='citizenship']"
+          item-fields:
+            countryIso2Code: "./@countryIso2Code"
+            countryDescription: "./@countryDescription"
+            region: "./@region"
+            logicalId: "./@logicalId"
+
+        birthdates:
+          item-xpath: "./*[local-name()='birthdate']"
+          item-fields:
+            birthdate: "./@birthdate"
+            year: "./@year"
+            monthOfYear: "./@monthOfYear"
+            dayOfMonth: "./@dayOfMonth"
+            circa: "./@circa"
+            calendarType: "./@calendarType"
+            city: "./@city"
+            zipCode: "./@zipCode"
+            region: "./@region"
+            place: "./@place"
+            countryIso2Code: "./@countryIso2Code"
+            countryDescription: "./@countryDescription"
+            logicalId: "./@logicalId"
+
+        regulations:
+          item-xpath: "./*[local-name()='regulation']"
+          item-fields:
+            regulationType: "./@regulationType"
+            organisationType: "./@organisationType"
+            publicationDate: "./@publicationDate"
+            entryIntoForceDate: "./@entryIntoForceDate"
+            numberTitle: "./@numberTitle"
+            programme: "./@programme"
+            logicalId: "./@logicalId"
+            publicationUrl: "./*[local-name()='publicationUrl']/text()"
+
+        identifications:
+          item-xpath: "./*[local-name()='identification']"
+          item-fields:
+            identificationTypeCode: "./@identificationTypeCode"
+            number: "./@number"
+            countryIso2Code: "./@countryIso2Code"
+            countryDescription: "./@countryDescription"
+            logicalId: "./@logicalId"
+
+        addresses:
+          item-xpath: "./*[local-name()='address']"
+          item-fields:
+            street: "./@street"
+            place: "./@place"
+            city: "./@city"
+            region: "./@region"
+            zipCode: "./@zipCode"
+            poBox: "./@poBox"
+            countryIso2Code: "./@countryIso2Code"
+            countryDescription: "./@countryDescription"
+            logicalId: "./@logicalId"
+            
     - id: un
       enabled: true
       sub-directory: un

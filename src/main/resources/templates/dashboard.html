@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>AML Delta Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f7f7f7;
+            color: #111;
+        }
+
+        .source-row, .summary-row {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .source-row {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .summary-row {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .source-card, .summary-card {
+            border: 2px solid #333;
+            background: #fff;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .source-card {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .source-card a {
+            text-decoration: none;
+            color: #111;
+            display: block;
+        }
+
+        .active {
+            background: #d9edf7;
+        }
+
+        .summary-card .label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .summary-card .value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .summary-added { border-left: 6px solid #2e7d32; }
+        .summary-removed { border-left: 6px solid #c62828; }
+        .summary-updated { border-left: 6px solid #ef6c00; }
+        .summary-total { border-left: 6px solid #1565c0; }
+
+        .info-box {
+            border: 1px solid #999;
+            background: #fff;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            margin-top: 24px;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: #efefef;
+        }
+
+        .empty {
+            color: #666;
+            font-style: italic;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 12px;
+            color: #fff;
+        }
+
+        .badge-added { background: #2e7d32; }
+        .badge-removed { background: #c62828; }
+        .badge-updated { background: #ef6c00; }
+
+        details {
+            margin-top: 6px;
+        }
+
+        summary {
+            cursor: pointer;
+            color: #1565c0;
+            font-weight: 600;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 8px 0 0 0;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="source-row">
+    <div th:each="src : ${sources}"
+         th:class="'source-card ' + (${selectedSource} == ${src} ? 'active' : '')">
+        <a th:href="@{'/dashboard/' + ${src}}" th:text="${#strings.toUpperCase(src)}"></a>
+    </div>
+</div>
+
+<div th:if="${delta == null}" class="empty">
+    Select a source to view the latest delta file.
+</div>
+
+<div th:if="${delta != null}">
+    <div class="info-box">
+        <h2>Source: <span th:text="${delta.sourceId}">-</span></h2>
+        <p><strong>Current File:</strong> <span th:text="${delta.sourceFile}">-</span></p>
+        <p><strong>Previous File:</strong> <span th:text="${delta.previousFile}">-</span></p>
+        <p><strong>Generated At:</strong> <span th:text="${delta.generatedAt}">-</span></p>
+    </div>
+
+    <div class="summary-row">
+        <div class="summary-card summary-total">
+            <div class="label">Current Entries</div>
+            <div class="value" th:text="${delta.summary != null and delta.summary.containsKey('totalCurrentEntries')} ? ${delta.summary['totalCurrentEntries']} : 0">0</div>
+        </div>
+        <div class="summary-card summary-added">
+            <div class="label">Added</div>
+            <div class="value" th:text="${delta.summary != null and delta.summary.containsKey('added')} ? ${delta.summary['added']} : 0">0</div>
+        </div>
+        <div class="summary-card summary-removed">
+            <div class="label">Removed</div>
+            <div class="value" th:text="${delta.summary != null and delta.summary.containsKey('removed')} ? ${delta.summary['removed']} : 0">0</div>
+        </div>
+        <div class="summary-card summary-updated">
+            <div class="label">Updated</div>
+            <div class="value" th:text="${delta.summary != null and delta.summary.containsKey('updated')} ? ${delta.summary['updated']} : 0">0</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Added</h3>
+        <div th:if="${#lists.isEmpty(addedChanges)}" class="empty">No added records.</div>
+        <table th:if="${!#lists.isEmpty(addedChanges)}">
+            <thead>
+            <tr>
+                <th>Type</th>
+                <th>Business Key</th>
+                <th>Primary Name</th>
+                <th>Entity Type</th>
+                <th>Source Ref</th>
+                <th>Details</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="chg : ${addedChanges}">
+                <td><span class="badge badge-added">ADDED</span></td>
+                <td th:text="${chg.businessKey}">-</td>
+                <td th:text="${chg.current != null ? chg.current['primaryName'] : '-'}">-</td>
+                <td th:text="${chg.current != null ? chg.current['entityType'] : '-'}">-</td>
+                <td th:text="${chg.current != null ? chg.current['sourceRef'] : '-'}">-</td>
+                <td>
+                    <details>
+                        <summary>View</summary>
+                        <pre th:text="${chg.current}">-</pre>
+                    </details>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h3>Removed</h3>
+        <div th:if="${#lists.isEmpty(removedChanges)}" class="empty">No removed records.</div>
+        <table th:if="${!#lists.isEmpty(removedChanges)}">
+            <thead>
+            <tr>
+                <th>Type</th>
+                <th>Business Key</th>
+                <th>Primary Name</th>
+                <th>Entity Type</th>
+                <th>Source Ref</th>
+                <th>Details</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="chg : ${removedChanges}">
+                <td><span class="badge badge-removed">REMOVED</span></td>
+                <td th:text="${chg.businessKey}">-</td>
+                <td th:text="${chg.previous != null ? chg.previous['primaryName'] : '-'}">-</td>
+                <td th:text="${chg.previous != null ? chg.previous['entityType'] : '-'}">-</td>
+                <td th:text="${chg.previous != null ? chg.previous['sourceRef'] : '-'}">-</td>
+                <td>
+                    <details>
+                        <summary>View</summary>
+                        <pre th:text="${chg.previous}">-</pre>
+                    </details>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h3>Updated</h3>
+        <div th:if="${#lists.isEmpty(updatedChanges)}" class="empty">No updated records.</div>
+        <table th:if="${!#lists.isEmpty(updatedChanges)}">
+            <thead>
+            <tr>
+                <th>Type</th>
+                <th>Business Key</th>
+                <th>Current Name</th>
+                <th>Entity Type</th>
+                <th>Field Changes</th>
+                <th>Details</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="chg : ${updatedChanges}">
+                <td><span class="badge badge-updated">UPDATED</span></td>
+                <td th:text="${chg.businessKey}">-</td>
+                <td th:text="${chg.current != null ? chg.current['primaryName'] : '-'}">-</td>
+                <td th:text="${chg.current != null ? chg.current['entityType'] : '-'}">-</td>
+                <td th:text="${chg.fieldChanges != null ? #lists.size(chg.fieldChanges) : 0}">0</td>
+                <td>
+                    <details>
+                        <summary>Previous</summary>
+                        <pre th:text="${chg.previous}">-</pre>
+                    </details>
+                    <details>
+                        <summary>Current</summary>
+                        <pre th:text="${chg.current}">-</pre>
+                    </details>
+                    <details th:if="${chg.fieldChanges != null and !#lists.isEmpty(chg.fieldChanges)}">
+                        <summary>Field Changes</summary>
+                        <pre th:text="${chg.fieldChanges}">-</pre>
+                    </details>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>

@@ -22,6 +22,15 @@ public class SourceProperties {
     private String fileRegex;
 
     @NotBlank
+    private boolean downloadEnabled;
+    
+    @NotBlank
+    private String downloadUrl;
+
+    @NotBlank
+    private String targetFilePrefix;
+
+    @NotBlank
     private String entryXpath;
 
     @Valid

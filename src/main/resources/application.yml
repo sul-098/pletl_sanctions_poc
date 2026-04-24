@@ -11,11 +11,11 @@ logging:
     etl.mashreq: DEBUG
 
 sanctions:
-  shared-root-directory: /Users/muhammadsuleman/Downloads/sectionslits
-  delta-output-directory: /Users/muhammadsuleman/Downloads/sectionslits/delta
-  state-file: /Users/muhammadsuleman/Downloads/sectionslits/state/processing-state.json
-  error-directory: /Users/muhammadsuleman/Downloads/sectionslits/error
-  archive-directory: /Users/muhammadsuleman/Downloads/sectionslits/archive
+  shared-root-directory: "/Users/muhammadsuleman/Downloads/sectionslits"
+  delta-output-directory: "/Users/muhammadsuleman/Downloads/sectionslits/delta"
+  state-file: "/Users/muhammadsuleman/Downloads/sectionslits/state/processing-state.json"
+  error-directory: "/Users/muhammadsuleman/Downloads/sectionslits/error"
+  archive-directory: "/Users/muhammadsuleman/Downloads/sectionslits/archive"
   scheduler-enabled: true
   poll-cron: "0 */5 * * * *"
   pretty-json: true
@@ -25,6 +25,9 @@ sanctions:
       enabled: true
       sub-directory: ofac
       file-regex: "^ofac-sdn-(\\d{14})\\.xml$"
+      download-enabled: true
+      download-url: "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
+      target-file-prefix: "ofac-sdn"
       entry-xpath: "/*[local-name()='sdnList']/*[local-name()='sdnEntry']"
       unique-key:
         type: xpath
@@ -79,6 +82,9 @@ sanctions:
       enabled: true
       sub-directory: hmt
       file-regex: "^hmt-uk-(\\d{14})\\.xml$"
+      download-enabled: true
+      download-url: "https://sanctionslist.fcdo.gov.uk/docs/UK-Sanctions-List.xml" 
+      target-file-prefix: "hmt-uk"
       entry-xpath: "//*[local-name()='Designation']"
       unique-key:
         type: xpath
@@ -106,11 +112,13 @@ sanctions:
       enabled: true
       sub-directory: eu
       file-regex: "^eu-(\\d{14})\\.xml$"
+      download-enabled: true
+      download-url: "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=dG9rZW4tMjAxNw"
+      target-file-prefix: "eu"
       entry-xpath: "//*[local-name()='sanctionEntity']"
       unique-key:
         type: xpath
         xpath: "./@euReferenceNumber"
-
       fields:
         sourceRef: "./@euReferenceNumber"
         listType: "'EU'"
@@ -120,7 +128,6 @@ sanctions:
         unitedNationId: "./@unitedNationId"
         designationDetails: "./@designationDetails"
         remark: "./*[local-name()='remark']/text()"
-
       collections:
         aliases:
           item-xpath: "./*[local-name()='nameAlias']"
@@ -135,7 +142,6 @@ sanctions:
             nameLanguage: "./@nameLanguage"
             strong: "./@strong"
             logicalId: "./@logicalId"
-
         citizenships:
           item-xpath: "./*[local-name()='citizenship']"
           item-fields:
@@ -143,7 +149,6 @@ sanctions:
             countryDescription: "./@countryDescription"
             region: "./@region"
             logicalId: "./@logicalId"
-
         birthdates:
           item-xpath: "./*[local-name()='birthdate']"
           item-fields:
@@ -160,7 +165,6 @@ sanctions:
             countryIso2Code: "./@countryIso2Code"
             countryDescription: "./@countryDescription"
             logicalId: "./@logicalId"
-
         regulations:
           item-xpath: "./*[local-name()='regulation']"
           item-fields:
@@ -172,7 +176,6 @@ sanctions:
             programme: "./@programme"
             logicalId: "./@logicalId"
             publicationUrl: "./*[local-name()='publicationUrl']/text()"
-
         identifications:
           item-xpath: "./*[local-name()='identification']"
           item-fields:
@@ -181,7 +184,6 @@ sanctions:
             countryIso2Code: "./@countryIso2Code"
             countryDescription: "./@countryDescription"
             logicalId: "./@logicalId"
-
         addresses:
           item-xpath: "./*[local-name()='address']"
           item-fields:
@@ -194,16 +196,18 @@ sanctions:
             countryIso2Code: "./@countryIso2Code"
             countryDescription: "./@countryDescription"
             logicalId: "./@logicalId"
-            
+
     - id: un
       enabled: true
       sub-directory: un
       file-regex: "^un-(\\d{14})\\.xml$"
+      download-enabled: true
+      download-url: "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
+      target-file-prefix: "un"
       entry-xpath: "//*[local-name()='INDIVIDUAL' or local-name()='ENTITY']"
       unique-key:
         type: xpath
         xpath: "./*[local-name()='DATAID']/text()"
-
       fields:
         sourceRef: "./*[local-name()='DATAID']/text()"
         listType: "'UN'"
@@ -214,29 +218,24 @@ sanctions:
         listedOn: "./*[local-name()='LISTED_ON']/text()"
         gender: "./*[local-name()='GENDER']/text()"
         comments: "./*[local-name()='COMMENTS1']/text()"
-
       collections:
         designations:
           item-xpath: "./*[local-name()='DESIGNATION']/*[local-name()='VALUE']"
           item-fields:
             value: "./text()"
-
         titles:
           item-xpath: "./*[local-name()='TITLE']/*[local-name()='VALUE']"
           item-fields:
             value: "./text()"
-
         nationalities:
           item-xpath: "./*[local-name()='NATIONALITY']"
           item-fields:
             value: "./*[local-name()='VALUE']/text()"
-
         aliases:
           item-xpath: "./*[local-name()='INDIVIDUAL_ALIAS' or local-name()='ENTITY_ALIAS']"
           item-fields:
             aliasName: "./*[local-name()='ALIAS_NAME']/text()"
             quality: "./*[local-name()='QUALITY']/text()"
-
         addresses:
           item-xpath: "./*[local-name()='INDIVIDUAL_ADDRESS' or local-name()='ENTITY_ADDRESS']"
           item-fields:
@@ -246,7 +245,6 @@ sanctions:
             country: "./*[local-name()='COUNTRY']/text()"
             note: "./*[local-name()='NOTE']/text()"
             zipCode: "./*[local-name()='ZIP_CODE']/text()"
-
         datesOfBirth:
           item-xpath: "./*[local-name()='INDIVIDUAL_DATE_OF_BIRTH']"
           item-fields:
@@ -255,14 +253,12 @@ sanctions:
             year: "./*[local-name()='YEAR']/text()"
             fromYear: "./*[local-name()='FROM_YEAR']/text()"
             toYear: "./*[local-name()='TO_YEAR']/text()"
-
         placesOfBirth:
           item-xpath: "./*[local-name()='INDIVIDUAL_PLACE_OF_BIRTH']"
           item-fields:
             city: "./*[local-name()='CITY']/text()"
             stateProvince: "./*[local-name()='STATE_PROVINCE']/text()"
             country: "./*[local-name()='COUNTRY']/text()"
-
         documents:
           item-xpath: "./*[local-name()='INDIVIDUAL_DOCUMENT' or local-name()='ENTITY_DOCUMENT']"
           item-fields:
@@ -276,6 +272,9 @@ sanctions:
       enabled: true
       sub-directory: uae
       file-regex: "^uae-(\\d{14})\\.xml$"
+      download-enabled: false
+      download-url: ""
+      target-file-prefix: "uae"
       entry-xpath: "//*[local-name()='Person' or local-name()='Entity' or local-name()='Record']"
       unique-key:
         type: xpath

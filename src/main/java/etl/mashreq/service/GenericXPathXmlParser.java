@@ -33,7 +33,7 @@ public class GenericXPathXmlParser implements SanctionsSourceParser {
 
     @Override
     public boolean supports(String sourceId) {
-        return !Set.of("ofac", "hmt", "un", "eu").contains(sourceId.toLowerCase());
+        return !Set.of("ofac", "hmt", "un", "eu", "uae").contains(sourceId.toLowerCase());
     }
 
     @Override

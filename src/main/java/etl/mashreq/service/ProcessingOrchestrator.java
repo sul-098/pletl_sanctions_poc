@@ -24,6 +24,7 @@ public class ProcessingOrchestrator {
     private final DiffService diffService;
     private final DeltaWriterService deltaWriterService;
     private final StateStoreService stateStoreService;
+    private final DatabasePersistenceService databasePersistenceService;
 
     public void processAll() {
         for (FilePair pair : folderScannerService.findWork()) {
@@ -72,6 +73,7 @@ public class ProcessingOrchestrator {
         Path output = deltaWriterService.write(deltaFile);
 
         log.info("Delta file written successfully: {}", output);
+        databasePersistenceService.persistDelta(deltaFile);
 
         ProcessingState state = stateStoreService.load();
         state.getLastProcessedFiles().put(pair.getSourceId(), pair.getCurrentFile().getFileName().toString());

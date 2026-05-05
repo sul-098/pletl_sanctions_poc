@@ -2,6 +2,16 @@ spring:
   application:
     name: aml-sanctions-delta-poc
 
+  datasource:
+    url: "jdbc:mysql://YOUR_DB_IP:3306/YOUR_DATABASE_NAME?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+    username: "YOUR_DB_USERNAME"
+    password: "YOUR_DB_PASSWORD"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  sql:
+    init:
+      mode: never
+
 server:
   port: 8080
 
@@ -271,7 +281,7 @@ sanctions:
     - id: uae
       enabled: true
       sub-directory: uae
-      file-regex: "^uae-(\\d{14})\\.xml$"
+      file-regex: "^uae-(\\d{14})\\.(xml|xlsx|xls|pdf)$"
       download-enabled: false
       download-url: ""
       target-file-prefix: "uae"

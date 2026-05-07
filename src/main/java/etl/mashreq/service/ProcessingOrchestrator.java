@@ -6,6 +6,7 @@ import etl.mashreq.domain.DeltaFile;
 import etl.mashreq.domain.FilePair;
 import etl.mashreq.domain.NormalizedSanctionsFile;
 import etl.mashreq.domain.ProcessingState;
+import etl.mashreq.parser.SanctionsParserFactory;
 import etl.mashreq.parser.SanctionsSourceParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,11 +21,12 @@ public class ProcessingOrchestrator {
 
     private final SanctionsProperties properties;
     private final FolderScannerService folderScannerService;
-    private final etl.mashreq.parser.SanctionsParserFactory parserFactory;
+    private final SanctionsParserFactory parserFactory;
     private final DiffService diffService;
     private final DeltaWriterService deltaWriterService;
     private final StateStoreService stateStoreService;
     private final DatabasePersistenceService databasePersistenceService;
+    private final FileLifecycleService fileLifecycleService;
 
     public void processAll() {
         for (FilePair pair : folderScannerService.findWork()) {
@@ -73,14 +75,24 @@ public class ProcessingOrchestrator {
         Path output = deltaWriterService.write(deltaFile);
 
         log.info("Delta file written successfully: {}", output);
+
+        log.info("Persisting delta to database for source={}", pair.getSourceId());
         databasePersistenceService.persistDelta(deltaFile);
 
         ProcessingState state = stateStoreService.load();
-        state.getLastProcessedFiles().put(pair.getSourceId(), pair.getCurrentFile().getFileName().toString());
+        state.getLastProcessedFiles().put(
+                pair.getSourceId(),
+                pair.getCurrentFile().getFileName().toString()
+        );
         stateStoreService.save(state);
 
         log.info("State updated for source={} lastProcessed={}",
                 pair.getSourceId(),
                 pair.getCurrentFile().getFileName().toString());
+
+        log.info("Rotating lifecycle files for source={}", pair.getSourceId());
+        fileLifecycleService.rotateAfterSuccessfulProcessing(pair);
+
+        log.info("Processing completed successfully for source={}", pair.getSourceId());
     }
 }

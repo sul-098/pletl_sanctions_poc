@@ -9,6 +9,6 @@ import java.nio.file.Path;
 @Builder
 public class FilePair {
     private String sourceId;
-    private Path currentFile;
-    private Path previousFile; // can be null for first-time load
+    private Path currentFile;   // file from new/
+    private Path previousFile;  // file from old/
 }

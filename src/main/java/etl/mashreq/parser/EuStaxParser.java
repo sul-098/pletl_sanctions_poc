@@ -32,6 +32,8 @@ public class EuStaxParser extends AbstractStaxParser {
     public NormalizedSanctionsFile parse(Path file, SourceProperties source) {
         Map<String, NormalizedEntry> entries = new LinkedHashMap<>();
 
+        int skipped = 0;
+
         try (InputStream in = Files.newInputStream(file)) {
             XMLStreamReader reader = newFactory().createXMLStreamReader(in);
 
@@ -46,6 +48,7 @@ public class EuStaxParser extends AbstractStaxParser {
                     String businessKey = value(attributes.get("sourceRef"));
                     if (businessKey == null || businessKey.isBlank()) {
                         log.warn("Skipping EU entry with missing euReferenceNumber in file={}", file.getFileName());
+                        skipped++;
                         continue;
                     }
 
@@ -63,13 +66,15 @@ public class EuStaxParser extends AbstractStaxParser {
                 }
             }
 
-            log.info("Parsed {} EU entries from {}", entries.size(), file.getFileName());
+            log.info("Parsed {} EU entries from {} (skipped={})",
+                    entries.size(), file.getFileName(), skipped);
 
             return NormalizedSanctionsFile.builder()
                     .sourceId(source.getId())
                     .fileName(file.getFileName().toString())
                     .loadedAt(Instant.now())
                     .entries(entries)
+                    .skippedCount(skipped)
                     .build();
 
         } catch (Exception e) {
@@ -90,10 +95,10 @@ public class EuStaxParser extends AbstractStaxParser {
         String remark = null;
 
         List<Map<String, Object>> aliases = new ArrayList<>();
-        List<Map<String, Object>> citizenships = new ArrayList<>();
-        List<Map<String, Object>> birthdates = new ArrayList<>();
+        List<Map<String, Object>> nationalities = new ArrayList<>();
+        List<Map<String, Object>> datesOfBirth = new ArrayList<>();
         List<Map<String, Object>> regulations = new ArrayList<>();
-        List<Map<String, Object>> identifications = new ArrayList<>();
+        List<Map<String, Object>> documents = new ArrayList<>();
         List<Map<String, Object>> addresses = new ArrayList<>();
 
         while (reader.hasNext()) {
@@ -119,10 +124,10 @@ public class EuStaxParser extends AbstractStaxParser {
                         }
                     }
 
-                    case "citizenship" -> citizenships.add(parseCitizenship(reader));
-                    case "birthdate" -> birthdates.add(parseBirthdate(reader));
+                    case "citizenship" -> nationalities.add(parseCitizenship(reader));
+                    case "birthdate" -> datesOfBirth.add(parseBirthdate(reader));
                     case "regulation" -> regulations.add(parseRegulation(reader));
-                    case "identification" -> identifications.add(parseIdentification(reader));
+                    case "identification" -> documents.add(parseIdentification(reader));
                     case "address" -> addresses.add(parseAddress(reader));
 
                     default -> {
@@ -141,12 +146,12 @@ public class EuStaxParser extends AbstractStaxParser {
         attributes.put("logicalId", logicalId);
         attributes.put("unitedNationId", unitedNationId);
         attributes.put("designationDetails", designationDetails);
-        attributes.put("remark", remark);
+        attributes.put("remarks", remark);
         attributes.put("aliases", aliases);
-        attributes.put("citizenships", citizenships);
-        attributes.put("birthdates", birthdates);
+        attributes.put("nationalities", nationalities);
+        attributes.put("datesOfBirth", datesOfBirth);
         attributes.put("regulations", regulations);
-        attributes.put("identifications", identifications);
+        attributes.put("documents", documents);
         attributes.put("addresses", addresses);
 
         return attributes;
@@ -171,9 +176,9 @@ public class EuStaxParser extends AbstractStaxParser {
 
     private Map<String, Object> parseCitizenship(XMLStreamReader reader) throws Exception {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("region", safe(reader.getAttributeValue(null, "region")));
+        map.put("country", safe(reader.getAttributeValue(null, "countryDescription")));
         map.put("countryIso2Code", safe(reader.getAttributeValue(null, "countryIso2Code")));
-        map.put("countryDescription", safe(reader.getAttributeValue(null, "countryDescription")));
+        map.put("region", safe(reader.getAttributeValue(null, "region")));
         map.put("logicalId", safe(reader.getAttributeValue(null, "logicalId")));
 
         consumeToEnd(reader, "citizenship");

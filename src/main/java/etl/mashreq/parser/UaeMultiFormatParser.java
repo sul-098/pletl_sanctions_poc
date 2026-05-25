@@ -9,15 +9,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.ss.usermodel.*;
-import org.springframework.stereotype.Component;
 
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamReader;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 
-@Component
+// Replaced by UaeSourceParser + uae strategy package.
+// @Component removed so Spring no longer registers this bean.
+// Safe to delete once UaeSourceParser has been verified in POC testing.
 @RequiredArgsConstructor
 @Slf4j
 public class UaeMultiFormatParser extends AbstractStaxParser {
@@ -26,7 +29,7 @@ public class UaeMultiFormatParser extends AbstractStaxParser {
 
     @Override
     public boolean supports(String sourceId) {
-        return "uae".equalsIgnoreCase(sourceId);
+        return false; // disabled — UaeSourceParser handles uae
     }
 
     @Override
@@ -40,7 +43,7 @@ public class UaeMultiFormatParser extends AbstractStaxParser {
         } else if (fileName.endsWith(".pdf")) {
             rawRecords = parsePdf(file);
         } else if (fileName.endsWith(".xml")) {
-            throw new UnsupportedOperationException("UAE XML can be handled separately if required.");
+            rawRecords = parseXml(file);
         } else {
             throw new IllegalArgumentException("Unsupported UAE file format: " + fileName);
         }
@@ -51,23 +54,21 @@ public class UaeMultiFormatParser extends AbstractStaxParser {
             Map<String, Object> attributes = normalizeUaeRecord(raw);
 
             String businessKey = buildBusinessKey(attributes);
-
             if (businessKey == null || businessKey.isBlank()) {
-                log.warn("Skipping UAE record because business key is missing. record={}", attributes);
+                log.warn("Skipping UAE record with missing business key: sourceRef={} primaryName={}",
+                        attributes.get("sourceRef"), attributes.get("primaryName"));
                 continue;
             }
 
             Map<String, Object> canonical = canonicalizationService.canonicalizeMap(attributes);
             String hash = canonicalizationService.computeHash(canonical);
 
-            NormalizedEntry entry = NormalizedEntry.builder()
+            entries.put(businessKey, NormalizedEntry.builder()
                     .businessKey(businessKey)
                     .sourceId(source.getId())
                     .attributes(canonical)
                     .canonicalHash(hash)
-                    .build();
-
-            entries.put(businessKey, entry);
+                    .build());
         }
 
         log.info("Parsed {} UAE entries from {}", entries.size(), file.getFileName());
@@ -79,6 +80,72 @@ public class UaeMultiFormatParser extends AbstractStaxParser {
                 .entries(entries)
                 .build();
     }
+
+    // ── XML parsing (StAX) ───────────────────────────────────────────────────
+
+    private List<Map<String, Object>> parseXml(Path file) {
+        List<Map<String, Object>> records = new ArrayList<>();
+
+        try (InputStream in = Files.newInputStream(file)) {
+            XMLStreamReader reader = newFactory().createXMLStreamReader(in);
+
+            while (reader.hasNext()) {
+                int event = reader.next();
+                if (event == XMLStreamConstants.START_ELEMENT) {
+                    String name = reader.getLocalName();
+                    if ("Person".equals(name) || "Individual".equals(name)) {
+                        records.add(parseXmlRecord(reader, name, "INDIVIDUAL"));
+                    } else if ("Entity".equals(name) || "Organisation".equals(name)) {
+                        records.add(parseXmlRecord(reader, name, "ENTITY"));
+                    } else if ("Record".equals(name)) {
+                        records.add(parseXmlRecord(reader, name, null));
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse UAE XML file=" + file, e);
+        }
+
+        return records;
+    }
+
+    private Map<String, Object> parseXmlRecord(XMLStreamReader reader, String closingTag,
+                                                String defaultEntityType) throws Exception {
+        Map<String, Object> record = new LinkedHashMap<>();
+        if (defaultEntityType != null) {
+            record.put("entityType", defaultEntityType);
+        }
+
+        while (reader.hasNext()) {
+            int event = reader.next();
+            if (event == XMLStreamConstants.START_ELEMENT) {
+                String el = reader.getLocalName();
+                switch (el) {
+                    case "ReferenceNumber", "Ref", "ID", "Id" ->
+                            record.put("reference_number", safe(reader.getElementText()));
+                    case "Name", "FullName", "EnglishName", "ListedName" ->
+                            record.put("name", safe(reader.getElementText()));
+                    case "EntityType", "Type", "Category" ->
+                            record.put("entity_type", safe(reader.getElementText()));
+                    case "Nationality", "Citizenship" ->
+                            record.put("nationality", safe(reader.getElementText()));
+                    case "DateOfBirth", "DOB", "BirthDate" ->
+                            record.put("date_of_birth", safe(reader.getElementText()));
+                    case "Remarks", "OtherInfo", "Comments" ->
+                            record.put("remarks", safe(reader.getElementText()));
+                    default -> { /* skip unrecognised elements */ }
+                }
+            } else if (event == XMLStreamConstants.END_ELEMENT
+                    && closingTag.equals(reader.getLocalName())) {
+                break;
+            }
+        }
+
+        return record;
+    }
+
+    // ── Excel parsing (Apache POI) ───────────────────────────────────────────
 
     private List<Map<String, Object>> parseExcel(Path file) {
         List<Map<String, Object>> records = new ArrayList<>();
@@ -107,9 +174,9 @@ public class UaeMultiFormatParser extends AbstractStaxParser {
                     record.put("sheetName", sheetName);
 
                     for (Map.Entry<Integer, String> header : headers.entrySet()) {
-                        String value = cellValue(row.getCell(header.getKey()));
-                        if (value != null && !value.isBlank()) {
-                            record.put(normalizeColumnName(header.getValue()), value.trim());
+                        String cellVal = cellValue(row.getCell(header.getKey()));
+                        if (cellVal != null && !cellVal.isBlank()) {
+                            record.put(normalizeColumnName(header.getValue()), cellVal.trim());
                         }
                     }
 
@@ -117,12 +184,14 @@ public class UaeMultiFormatParser extends AbstractStaxParser {
                 }
             }
 
-            return records;
-
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse UAE Excel file=" + file, e);
         }
+
+        return records;
     }
+
+    // ── PDF parsing (PDFBox) ─────────────────────────────────────────────────
 
     private List<Map<String, Object>> parsePdf(Path file) {
         List<Map<String, Object>> records = new ArrayList<>();
@@ -131,78 +200,70 @@ public class UaeMultiFormatParser extends AbstractStaxParser {
             PDFTextStripper stripper = new PDFTextStripper();
             String text = stripper.getText(document);
 
-            String[] lines = text.split("\\R");
-
-            for (String line : lines) {
+            for (String line : text.split("\\R")) {
                 String clean = line.trim();
-                if (clean.isBlank()) {
+                if (clean.isBlank() || !looksLikeSanctionRecord(clean)) {
                     continue;
                 }
 
-                /*
-                 * PDF parsing is intentionally conservative.
-                 * UAE PDFs may not have stable tables.
-                 * Here we capture line-based records first.
-                 * Later, once you share actual UAE PDF sample layout,
-                 * we can improve this into proper column extraction.
-                 */
-                if (looksLikeSanctionRecord(clean)) {
-                    Map<String, Object> record = new LinkedHashMap<>();
-                    record.put("rawLine", clean);
-                    record.put("name", extractNameFromPdfLine(clean));
-                    record.put("referenceNumber", extractReferenceFromPdfLine(clean));
-                    record.put("entityType", detectEntityType(clean));
-                    records.add(record);
-                }
+                Map<String, Object> record = new LinkedHashMap<>();
+                record.put("name", extractNameFromPdfLine(clean));
+                record.put("reference_number", extractReferenceFromPdfLine(clean));
+                record.put("entity_type", detectEntityType(clean));
+                records.add(record);
             }
-
-            return records;
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse UAE PDF file=" + file, e);
         }
+
+        return records;
     }
 
+    // ── Canonical normalization ──────────────────────────────────────────────
+
     private Map<String, Object> normalizeUaeRecord(Map<String, Object> raw) {
-        Map<String, Object> normalized = new LinkedHashMap<>();
+        Map<String, Object> out = new LinkedHashMap<>();
 
         String sheetName = value(raw.get("sheetName"));
 
-        String referenceNumber = firstNonBlank(
-                raw, "reference_number", "reference", "ref_no", "listing_id", "id", "serial_no", "uid"
-        );
+        String referenceNumber = firstNonBlank(raw,
+                "reference_number", "reference", "ref_no", "listing_id", "id", "serial_no", "uid");
 
-        String name = firstNonBlank(
-                raw, "name", "full_name", "english_name", "listed_name", "individual_name", "entity_name"
-        );
+        String name = firstNonBlank(raw,
+                "name", "full_name", "english_name", "listed_name", "individual_name", "entity_name");
 
-        String entityType = firstNonBlank(
-                raw, "entity_type", "type", "category"
-        );
-
+        String entityType = firstNonBlank(raw, "entity_type", "type", "category");
         if (entityType == null) {
             entityType = inferEntityTypeFromSheet(sheetName);
         }
 
-        String nationality = firstNonBlank(
-                raw, "nationality", "citizenship", "country"
-        );
+        String nationality = firstNonBlank(raw, "nationality", "citizenship", "country");
+        String dob         = firstNonBlank(raw, "date_of_birth", "dob", "birth_date");
+        String remarks     = firstNonBlank(raw, "remarks", "other_info", "comments");
 
-        String dob = firstNonBlank(
-                raw, "date_of_birth", "dob", "birth_date"
-        );
+        out.put("sourceRef",    referenceNumber);
+        out.put("listType",     "UAE");
+        out.put("entityType",   entityType);
+        out.put("primaryName",  name);
+        out.put("remarks",      remarks);
 
-        normalized.put("sourceRef", referenceNumber);
-        normalized.put("listType", "UAE");
-        normalized.put("entityType", entityType);
-        normalized.put("primaryName", name);
-        normalized.put("nationality", nationality);
-        normalized.put("dateOfBirth", dob);
-        normalized.put("sheetName", sheetName);
+        // Scalar convenience fields (used by DB persistence directly)
+        out.put("nationality",  nationality);
+        out.put("dateOfBirth",  dob);
 
-        normalized.put("raw", raw);
+        // Canonical collection fields — always present as empty lists if no data
+        out.put("aliases",      new ArrayList<>());
+        out.put("addresses",    new ArrayList<>());
+        out.put("documents",    new ArrayList<>());
+        out.put("nationalities", nationality != null
+                ? List.of(Map.of("country", nationality))
+                : new ArrayList<>());
+        out.put("datesOfBirth", dob != null
+                ? List.of(Map.of("date", dob))
+                : new ArrayList<>());
 
-        return normalized;
+        return out;
     }
 
     private String buildBusinessKey(Map<String, Object> attributes) {
@@ -211,173 +272,121 @@ public class UaeMultiFormatParser extends AbstractStaxParser {
             return sourceRef;
         }
 
-        /*
-         * Fallback key for UAE because PDF/Excel sometimes has no stable ID.
-         * This allows comparison across formats if name + type are stable.
-         */
-        String name = value(attributes.get("primaryName"));
-        String type = value(attributes.get("entityType"));
-        String dob = value(attributes.get("dateOfBirth"));
+        // Composite fallback for PDF/Excel rows with no stable ID
+        String name        = value(attributes.get("primaryName"));
+        String type        = value(attributes.get("entityType"));
+        String dob         = value(attributes.get("dateOfBirth"));
         String nationality = value(attributes.get("nationality"));
 
         String composite = String.join("|",
-                safeKey(type),
-                safeKey(name),
-                safeKey(dob),
-                safeKey(nationality)
-        );
+                safeKey(type), safeKey(name), safeKey(dob), safeKey(nationality));
 
         return composite.isBlank() ? null : composite.toLowerCase();
     }
 
+    // ── Excel helpers ────────────────────────────────────────────────────────
+
     private Row findHeaderRow(Sheet sheet) {
         for (int i = 0; i <= Math.min(sheet.getLastRowNum(), 20); i++) {
             Row row = sheet.getRow(i);
-            if (row == null) {
-                continue;
-            }
-
+            if (row == null) continue;
             int nonEmpty = 0;
             for (Cell cell : row) {
-                String value = cellValue(cell);
-                if (value != null && !value.isBlank()) {
-                    nonEmpty++;
-                }
+                String v = cellValue(cell);
+                if (v != null && !v.isBlank()) nonEmpty++;
             }
-
-            if (nonEmpty >= 2) {
-                return row;
-            }
+            if (nonEmpty >= 2) return row;
         }
         return null;
     }
 
     private Map<Integer, String> readHeaders(Row headerRow) {
         Map<Integer, String> headers = new LinkedHashMap<>();
-
         for (Cell cell : headerRow) {
             String header = cellValue(cell);
             if (header != null && !header.isBlank()) {
                 headers.put(cell.getColumnIndex(), header);
             }
         }
-
         return headers;
     }
 
     private boolean isEmptyRow(Row row) {
         for (Cell cell : row) {
-            String value = cellValue(cell);
-            if (value != null && !value.isBlank()) {
-                return false;
-            }
+            String v = cellValue(cell);
+            if (v != null && !v.isBlank()) return false;
         }
         return true;
     }
 
     private String cellValue(Cell cell) {
-        if (cell == null) {
-            return null;
-        }
-
-        DataFormatter formatter = new DataFormatter();
-        return formatter.formatCellValue(cell).trim();
+        if (cell == null) return null;
+        return new DataFormatter().formatCellValue(cell).trim();
     }
 
     private String normalizeColumnName(String column) {
-        return column == null ? null :
-                column.trim()
-                        .toLowerCase()
-                        .replaceAll("[^a-z0-9]+", "_")
-                        .replaceAll("^_+|_+$", "");
+        if (column == null) return null;
+        return column.trim().toLowerCase()
+                .replaceAll("[^a-z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
     }
+
+    // ── PDF helpers ──────────────────────────────────────────────────────────
+
+    private boolean looksLikeSanctionRecord(String line) {
+        return line.length() > 10
+                && !line.toLowerCase().contains("page ")
+                && !line.toLowerCase().contains("united arab emirates");
+    }
+
+    private String extractNameFromPdfLine(String line) {
+        for (String sep : new String[]{" Ref ", " Reference ", " ID ", " No. "}) {
+            int idx = line.indexOf(sep);
+            if (idx > 0) return line.substring(0, idx).trim();
+        }
+        return line;
+    }
+
+    private String extractReferenceFromPdfLine(String line) {
+        java.util.regex.Matcher m =
+                java.util.regex.Pattern.compile("(UAE[-_ ]?\\d+|\\b\\d{4,}\\b)").matcher(line);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private String detectEntityType(String text) {
+        String s = text.toLowerCase();
+        if (s.contains("company") || s.contains("llc") || s.contains("entity")
+                || s.contains("organization") || s.contains("organisation")) {
+            return "ENTITY";
+        }
+        return "INDIVIDUAL";
+    }
+
+    // ── Shared utilities ─────────────────────────────────────────────────────
 
     private String firstNonBlank(Map<String, Object> map, String... keys) {
         for (String key : keys) {
-            Object value = map.get(key);
-            if (value != null && !value.toString().trim().isBlank()) {
-                return value.toString().trim();
-            }
+            Object v = map.get(key);
+            if (v != null && !v.toString().trim().isBlank()) return v.toString().trim();
         }
         return null;
     }
 
     private String inferEntityTypeFromSheet(String sheetName) {
-        if (sheetName == null) {
-            return "UNKNOWN";
-        }
-
+        if (sheetName == null) return "UNKNOWN";
         String s = sheetName.toLowerCase();
-
-        if (s.contains("individual") || s.contains("person")) {
-            return "INDIVIDUAL";
-        }
-
-        if (s.contains("entity") || s.contains("organization") || s.contains("organisation")) {
-            return "ENTITY";
-        }
-
+        if (s.contains("individual") || s.contains("person")) return "INDIVIDUAL";
+        if (s.contains("entity") || s.contains("organization") || s.contains("organisation")) return "ENTITY";
         return sheetName;
     }
 
-    private boolean looksLikeSanctionRecord(String line) {
-        return line.length() > 10 &&
-                !line.toLowerCase().contains("page ") &&
-                !line.toLowerCase().contains("united arab emirates");
-    }
-
-    private String extractNameFromPdfLine(String line) {
-        /*
-         * Temporary generic rule:
-         * If line contains reference separators, take text before them.
-         */
-        String[] separators = {" Ref ", " Reference ", " ID ", " No. "};
-
-        for (String sep : separators) {
-            int idx = line.indexOf(sep);
-            if (idx > 0) {
-                return line.substring(0, idx).trim();
-            }
-        }
-
-        return line;
-    }
-
-    private String extractReferenceFromPdfLine(String line) {
-        /*
-         * Temporary generic extraction.
-         * Once real PDF sample is known, replace with exact pattern.
-         */
-        java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("(UAE[-_ ]?\\d+|\\b\\d{4,}\\b)").matcher(line);
-
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-
-        return null;
-    }
-
-    private String detectEntityType(String text) {
-        String s = text.toLowerCase();
-
-        if (s.contains("company") || s.contains("llc") || s.contains("entity") || s.contains("organization")) {
-            return "ENTITY";
-        }
-
-        return "INDIVIDUAL";
-    }
-
-    private String value(Object value) {
-        if (value == null) {
-            return null;
-        }
-
-        String s = value.toString().trim();
+    private String value(Object v) {
+        if (v == null) return null;
+        String s = v.toString().trim();
         return s.isEmpty() ? null : s;
     }
 
-    private String safeKey(String value) {
-        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
+    private String safeKey(String v) {
+        return v == null ? "" : v.trim().replaceAll("\\s+", " ");
     }
 }

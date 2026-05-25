@@ -32,6 +32,8 @@ public class HmtStaxParser extends AbstractStaxParser {
     public NormalizedSanctionsFile parse(Path file, SourceProperties source) {
         Map<String, NormalizedEntry> entries = new LinkedHashMap<>();
 
+        int skipped = 0;
+
         try (InputStream in = Files.newInputStream(file)) {
             XMLStreamReader reader = newFactory().createXMLStreamReader(in);
 
@@ -46,6 +48,7 @@ public class HmtStaxParser extends AbstractStaxParser {
                     String businessKey = value(attributes.get("sourceRef"));
                     if (businessKey == null || businessKey.isBlank()) {
                         log.warn("Skipping HMT entry with missing UniqueID in file={}", file.getFileName());
+                        skipped++;
                         continue;
                     }
 
@@ -63,13 +66,15 @@ public class HmtStaxParser extends AbstractStaxParser {
                 }
             }
 
-            log.info("Parsed {} HMT entries from {}", entries.size(), file.getFileName());
+            log.info("Parsed {} HMT entries from {} (skipped={})",
+                    entries.size(), file.getFileName(), skipped);
 
             return NormalizedSanctionsFile.builder()
                     .sourceId(source.getId())
                     .fileName(file.getFileName().toString())
                     .loadedAt(Instant.now())
                     .entries(entries)
+                    .skippedCount(skipped)
                     .build();
 
         } catch (Exception e) {

@@ -21,7 +21,7 @@ public class DashboardController {
 
     @GetMapping("/dashboard")
     public String dashboard(Model model) {
-        model.addAttribute("sources", List.of("ofac", "hmt", "un", "eu"));
+        model.addAttribute("sources", List.of("ofac", "hmt", "un", "eu", "uae"));
         model.addAttribute("selectedSource", null);
         model.addAttribute("delta", null);
         model.addAttribute("addedChanges", Collections.emptyList());
@@ -49,7 +49,7 @@ public class DashboardController {
                 .filter(c -> c != null && c.getChangeType() == ChangeType.UPDATED)
                 .toList();
 
-        model.addAttribute("sources", List.of("ofac", "hmt", "un", "eu"));
+        model.addAttribute("sources", List.of("ofac", "hmt", "un", "eu", "uae"));
         model.addAttribute("selectedSource", source);
         model.addAttribute("delta", delta);
         model.addAttribute("addedChanges", addedChanges);

@@ -7,12 +7,13 @@ import java.time.LocalDate;
 
 @Data
 @AllArgsConstructor
-public class DailyInsightDto {
-    private LocalDate processingDate;
+public class InsightSummaryDto {
+    private LocalDate periodStart;
+    private LocalDate periodEnd;
     private String sourceCode;
-    private Integer totalComparisons;
+    private Integer totalRuns;
     private Integer totalAdded;
     private Integer totalRemoved;
     private Integer totalUpdated;
-    private Integer totalCurrentEntries;
+    private Integer latestCurrentEntries;
 }

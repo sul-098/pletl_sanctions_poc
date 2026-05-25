@@ -32,6 +32,8 @@ public class OfacStaxParser extends AbstractStaxParser {
     public NormalizedSanctionsFile parse(Path file, SourceProperties source) {
         Map<String, NormalizedEntry> entries = new LinkedHashMap<>();
 
+        int skipped = 0;
+
         try (InputStream in = Files.newInputStream(file)) {
             XMLStreamReader reader = newFactory().createXMLStreamReader(in);
 
@@ -46,6 +48,7 @@ public class OfacStaxParser extends AbstractStaxParser {
                     String businessKey = value(attributes.get("sourceRef"));
                     if (businessKey == null) {
                         log.warn("Skipping OFAC entry with missing uid in file={}", file.getFileName());
+                        skipped++;
                         continue;
                     }
 
@@ -63,13 +66,15 @@ public class OfacStaxParser extends AbstractStaxParser {
                 }
             }
 
-            log.info("Parsed {} OFAC entries from {}", entries.size(), file.getFileName());
+            log.info("Parsed {} OFAC entries from {} (skipped={})",
+                    entries.size(), file.getFileName(), skipped);
 
             return NormalizedSanctionsFile.builder()
                     .sourceId(source.getId())
                     .fileName(file.getFileName().toString())
                     .loadedAt(Instant.now())
                     .entries(entries)
+                    .skippedCount(skipped)
                     .build();
 
         } catch (Exception e) {

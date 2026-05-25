@@ -18,7 +18,8 @@ public class SanctionsProperties {
     @NotBlank
     private String deltaOutputDirectory;
 
-    @NotBlank
+    // stateFile is no longer used — state is derived from sanctions_run in the DB.
+    // Kept here so existing application.yml entries do not cause startup failures.
     private String stateFile;
 
     @NotBlank

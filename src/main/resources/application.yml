@@ -3,10 +3,10 @@ spring:
     name: aml-sanctions-delta-poc
 
   datasource:
-    url: "jdbc:mysql://YOUR_DB_IP:3306/YOUR_DATABASE_NAME?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+    url: "jdbc:sqlserver://YOUR_DB_IP:YOUR_DB_PORT;databaseName=SWP_ETL_DEV;encrypt=true;trustServerCertificate=true"
     username: "YOUR_DB_USERNAME"
     password: "YOUR_DB_PASSWORD"
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   sql:
     init:
@@ -25,7 +25,7 @@ sanctions:
   delta-output-directory: "/Users/muhammadsuleman/Downloads/sectionslits/delta"
   state-file: "/Users/muhammadsuleman/Downloads/sectionslits/state/processing-state.json"
   error-directory: "/Users/muhammadsuleman/Downloads/sectionslits/error"
-  archive-directory: "/Users/muhammadsuleman/Downloads/sectionslits/archive"
+  archive-directory: "/Users/muhammadsuleman/Downloads/sectionslits/error"
   scheduler-enabled: true
   poll-cron: "0 */5 * * * *"
   pretty-json: true

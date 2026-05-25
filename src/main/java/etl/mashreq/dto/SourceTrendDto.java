@@ -7,12 +7,10 @@ import java.time.LocalDate;
 
 @Data
 @AllArgsConstructor
-public class DailyInsightDto {
-    private LocalDate processingDate;
+public class SourceTrendDto {
+    private LocalDate week;
     private String sourceCode;
-    private Integer totalComparisons;
     private Integer totalAdded;
     private Integer totalRemoved;
     private Integer totalUpdated;
-    private Integer totalCurrentEntries;
 }

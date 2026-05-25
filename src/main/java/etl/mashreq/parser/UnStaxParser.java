@@ -32,6 +32,8 @@ public class UnStaxParser extends AbstractStaxParser {
     public NormalizedSanctionsFile parse(Path file, SourceProperties source) {
         Map<String, NormalizedEntry> entries = new LinkedHashMap<>();
 
+        int skipped = 0;
+
         try (InputStream in = Files.newInputStream(file)) {
             XMLStreamReader reader = newFactory().createXMLStreamReader(in);
 
@@ -47,6 +49,7 @@ public class UnStaxParser extends AbstractStaxParser {
                         String businessKey = value(attributes.get("sourceRef"));
                         if (businessKey == null || businessKey.isBlank()) {
                             log.warn("Skipping UN entry with missing DATAID in file={}", file.getFileName());
+                            skipped++;
                             continue;
                         }
 
@@ -65,13 +68,15 @@ public class UnStaxParser extends AbstractStaxParser {
                 }
             }
 
-            log.info("Parsed {} UN entries from {}", entries.size(), file.getFileName());
+            log.info("Parsed {} UN entries from {} (skipped={})",
+                    entries.size(), file.getFileName(), skipped);
 
             return NormalizedSanctionsFile.builder()
                     .sourceId(source.getId())
                     .fileName(file.getFileName().toString())
                     .loadedAt(Instant.now())
                     .entries(entries)
+                    .skippedCount(skipped)
                     .build();
 
         } catch (Exception e) {
@@ -91,7 +96,7 @@ public class UnStaxParser extends AbstractStaxParser {
         String unListType = null;
         String listedOn = null;
         String gender = null;
-        String comments = null;
+        String remarks = null;
 
         List<Map<String, Object>> designations = new ArrayList<>();
         List<Map<String, Object>> titles = new ArrayList<>();
@@ -118,7 +123,7 @@ public class UnStaxParser extends AbstractStaxParser {
                     case "UN_LIST_TYPE" -> unListType = readSimpleText(reader);
                     case "LISTED_ON" -> listedOn = readSimpleText(reader);
                     case "GENDER" -> gender = readSimpleText(reader);
-                    case "COMMENTS1" -> comments = readSimpleText(reader);
+                    case "COMMENTS1" -> remarks = readSimpleText(reader);
 
                     case "DESIGNATION" -> designations.add(parseValueContainer(reader, "DESIGNATION"));
                     case "TITLE" -> titles.add(parseValueContainer(reader, "TITLE"));
@@ -146,7 +151,7 @@ public class UnStaxParser extends AbstractStaxParser {
         attributes.put("unListType", safe(unListType));
         attributes.put("listedOn", safe(listedOn));
         attributes.put("gender", safe(gender));
-        attributes.put("comments", safe(comments));
+        attributes.put("remarks", safe(remarks));
         attributes.put("designations", designations);
         attributes.put("titles", titles);
         attributes.put("nationalities", nationalities);

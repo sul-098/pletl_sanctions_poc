@@ -32,7 +32,8 @@ public class DownloadOrchestrator {
 
             InputStream stream = httpDownloadService.download(source.getDownloadUrl());
 
-            Path targetDir = Path.of(properties.getSharedRootDirectory(), source.getSubDirectory());
+            // FolderScannerService picks up files from the new/ subdirectory
+            Path targetDir = Path.of(properties.getSharedRootDirectory(), source.getSubDirectory(), "new");
             Files.createDirectories(targetDir);
 
             String fileName = namingService.generateFileName(source.getTargetFilePrefix());

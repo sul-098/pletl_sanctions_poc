@@ -1,0 +1,9 @@
+target/
+*.log
+*.env
+.env*
+.vscode/
+.idea/
+src/main/resources/application-local.yml
+application-local.yml
+*.md

@@ -13,3 +13,7 @@ target/
 
 # Env
 *.env
+
+# Local dev config (contains real credentials — never commit)
+application-local.yml
+src/main/resources/application-local.yml

@@ -1,0 +1,16 @@
+# Copy this file to application-local.yml and fill in your local values.
+# application-local.yml is gitignored — never commit it.
+# Activate with: --spring.profiles.active=local  (or set SPRING_PROFILES_ACTIVE=local)
+
+spring:
+  datasource:
+    url: "jdbc:sqlserver://YOUR_HOST:1433;databaseName=SWP_ETL_DEV;encrypt=true;trustServerCertificate=true"
+    username: "YOUR_USERNAME"
+    password: "YOUR_PASSWORD"
+
+sanctions:
+  shared-root-directory: "C:/path/to/sanctionslits"
+  delta-output-directory: "C:/path/to/sanctionslits/delta"
+  state-file:             "C:/path/to/sanctionslits/state/processing-state.json"
+  error-directory:        "C:/path/to/sanctionslits/error"
+  archive-directory:      "C:/path/to/sanctionslits/archive"

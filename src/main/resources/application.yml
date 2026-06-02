@@ -3,9 +3,9 @@ spring:
     name: aml-sanctions-delta-poc
 
   datasource:
-    url: "jdbc:sqlserver://YOUR_DB_IP:YOUR_DB_PORT;databaseName=SWP_ETL_DEV;encrypt=true;trustServerCertificate=true"
-    username: "YOUR_DB_USERNAME"
-    password: "YOUR_DB_PASSWORD"
+    url: "jdbc:sqlserver://${DB_HOST}:${DB_PORT:1433};databaseName=${DB_NAME:SWP_ETL_DEV};encrypt=${DB_ENCRYPT:true};trustServerCertificate=${DB_TRUST_CERT:true}"
+    username: "${DB_USERNAME}"
+    password: "${DB_PASSWORD}"
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   sql:
@@ -13,22 +13,31 @@ spring:
       mode: never
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
 
 logging:
   level:
-    root: INFO
-    etl.mashreq: DEBUG
+    root: ${LOG_LEVEL_ROOT:INFO}
+    etl.mashreq: ${LOG_LEVEL_APP:DEBUG}
 
 sanctions:
-  shared-root-directory: "/Users/muhammadsuleman/Downloads/sectionslits"
-  delta-output-directory: "/Users/muhammadsuleman/Downloads/sectionslits/delta"
-  state-file: "/Users/muhammadsuleman/Downloads/sectionslits/state/processing-state.json"
-  error-directory: "/Users/muhammadsuleman/Downloads/sectionslits/error"
-  archive-directory: "/Users/muhammadsuleman/Downloads/sectionslits/error"
-  scheduler-enabled: true
-  poll-cron: "0 */5 * * * *"
-  pretty-json: true
+  shared-root-directory: "${SANCTIONS_ROOT:/sanctions-data}"
+  delta-output-directory: "${SANCTIONS_DELTA_DIR:/sanctions-data/delta}"
+  state-file: "${SANCTIONS_STATE_FILE:/sanctions-data/state/processing-state.json}"
+  error-directory: "${SANCTIONS_ERROR_DIR:/sanctions-data/error}"
+  archive-directory: "${SANCTIONS_ARCHIVE_DIR:/sanctions-data/archive}"
+  scheduler-enabled: ${SCHEDULER_ENABLED:true}
+  poll-cron: "${POLL_CRON:0 */5 * * * *}"
+  pretty-json: ${PRETTY_JSON:true}
 
   sources:
     - id: ofac
@@ -93,7 +102,7 @@ sanctions:
       sub-directory: hmt
       file-regex: "^hmt-uk-(\\d{14})\\.xml$"
       download-enabled: true
-      download-url: "https://sanctionslist.fcdo.gov.uk/docs/UK-Sanctions-List.xml" 
+      download-url: "https://sanctionslist.fcdo.gov.uk/docs/UK-Sanctions-List.xml"
       target-file-prefix: "hmt-uk"
       entry-xpath: "//*[local-name()='Designation']"
       unique-key:

@@ -11,6 +11,5 @@ spring:
 sanctions:
   shared-root-directory: "C:/path/to/sanctionslits"
   delta-output-directory: "C:/path/to/sanctionslits/delta"
-  state-file:             "C:/path/to/sanctionslits/state/processing-state.json"
   error-directory:        "C:/path/to/sanctionslits/error"
   archive-directory:      "C:/path/to/sanctionslits/archive"

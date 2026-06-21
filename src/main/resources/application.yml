@@ -32,7 +32,6 @@ logging:
 sanctions:
   shared-root-directory: "${SANCTIONS_ROOT:/sanctions-data}"
   delta-output-directory: "${SANCTIONS_DELTA_DIR:/sanctions-data/delta}"
-  state-file: "${SANCTIONS_STATE_FILE:/sanctions-data/state/processing-state.json}"
   error-directory: "${SANCTIONS_ERROR_DIR:/sanctions-data/error}"
   archive-directory: "${SANCTIONS_ARCHIVE_DIR:/sanctions-data/archive}"
   scheduler-enabled: ${SCHEDULER_ENABLED:true}
